@@ -24,9 +24,10 @@ LOCAL       =
 # ________________ Stop customizing here ________________
 
 
-CFLAGS = -O $(NKEYPAD) $(CLINES) $(ALLIGN)
-OBJS = bpe.o hexsrch.o
-SRCS = bpe.c hexsrch.c
+CFLAGS = -O $(NKEYPAD) $(CLINES) $(ALLIGN) -DBSD_42=1 -DSUN=1 -DUNIX -D_FILE_OFFSET_BITS=64
+LIBS = -lncurses
+OBJS = bpe.o curstr.o
+SRCS = bpe.c curstr.c
 EXEC = bpe
 
 # for making a shar file
@@ -38,8 +39,8 @@ go: install-deps $(EXEC)
 install-deps:
 	./install-package --deb-packages libncurses5-dev
 
-$(EXEC): tags $(OBJS)
-	$(CC) -o $(EXEC) $(LOCAL) $(OBJS) $(LIBES)
+$(EXEC): $(OBJS)
+	$(CC) -o $(EXEC) $(LOCAL) $(OBJS) $(LIBS)
 
 #$(OBJS): $(SRCS)
 #	$(CC) -c $(CFLAGS) $(LOCAL) $(SRCS)
@@ -59,4 +60,3 @@ install: bpe
 
 tags:
 	ctags *.c
-
