@@ -1,0 +1,81 @@
+#!/bin/bash
+
+file=""
+directory=""
+
+function usage
+{
+    retval="$1"
+    case "$retval" in
+        0)
+            ;;
+        *)
+            exec 1>&2
+            ;;
+    esac
+    echo "Usage: $0 --file filename --directory --directoryname"
+    echo
+    echo This program copies a file to directory, but only if the
+    echo file is not already in the directory with identical content.
+    echo This cuts down on unnecessary sudoing.
+    exit "$retval"
+}
+
+while [ "$#" -ge 2 ]
+do
+    case "$1" in
+        --file)
+            file="$2"
+            shift
+            ;;
+        --directory)
+            directory="$2"
+            shift
+            ;;
+        -h|--help)
+            usage 0
+            ;;
+        *)
+            echo "$0: Unrecognized option: $1" 1>&2
+            usage 1
+            ;;
+    esac
+    shift
+done
+
+case "$file" in
+    "")
+        echo --file is a required option 1>&2
+        usage 1
+        ;;
+esac
+
+case "$directory" in
+    "")
+        echo --directory is a required option 1>&2
+        usage 1
+        ;;
+esac
+
+if ! [ -d "$directory" ]
+then
+    # directory does not yet exist.
+    # Try to create it "as me"
+    if ! mkdir -p "$directory" > /dev/null 2>&1
+    then
+        # if that fails, try to create it as root
+        sudo mkdir -p "$directory"
+    fi
+fi
+
+if ! cmp "$file" "$directory/$file" > /dev/null 2>&1
+then
+    base_filename=$(basename "$file")
+    # file does not yet exist, or exists with different content
+    # Try to copy it "as me"
+    if ! cp "$file" "$directory/$base_filename" > /dev/null 2>&1
+    then
+        # if that fails, try copy it as root
+        sudo cp "$file" "$directory/$base_filename"
+    fi
+fi

@@ -1,0 +1,227 @@
+#!/bin/bash
+
+set -eu
+# set -x
+set -o pipefail
+
+use_rpm=False
+use_deb=False
+rpm_packages=""
+deb_packages=""
+
+function usage
+{
+    retval="$1"
+    case "$retval" in
+        0)
+            ;;
+        1)
+            exec 1>&2
+            ;;
+        *)
+            echo "$0: Internal error: argument to usage must be 0 or 1" 1>&2
+            exit 1
+            ;;
+    esac
+    echo "$0 --force-rpm --force-deb --rpm-packages --deb-packages"
+    echo "If you do not give --force-rpm or --force-deb, this script will guess which to use"
+    echo
+    echo "Example:"
+    echo "    $0 --rpm-packages 'coreutils sharutils' --deb-packages 'coreutils sharutils'"
+    echo
+    echo "Note that package names commonly differ from rpm to deb systems"
+    exit "$retval"
+}
+
+while [ "$#" -ge 1 ]
+do
+    case "$1" in
+        --force-rpm)
+            use_rpm=Force
+            ;;
+        --force-deb)
+            use_deb=Force
+            ;;
+        --rpm-packages)
+            rpm_packages="$2"
+            shift
+            ;;
+        --deb-packages)
+            deb_packages="$2"
+            shift
+            ;;
+        --help|-h)
+            usage 0
+            ;;
+        *)
+            echo "$0: Unrecognized option: $1" 1>&2
+            usage 1
+            ;;
+    esac
+    shift
+done
+
+case "$use_rpm" in
+    force)
+        case "$use_deb" in
+            force)
+                echo "$0: Error: cannot force both rpm and deb" 1>&2
+                exit 1
+                ;;
+            True)
+                echo "$0: Internal error: deb should not be True yet" 1>&2
+                exit 1
+                ;;
+            False)
+                use_rpm=True
+                ;;
+            *)
+                echo "$0: Internal error: deb not force or False" 1>&2
+                exit 1
+                ;;
+        esac
+        ;;
+    True)
+        echo "$0: Internal error: use_rpm should not be True yet" 1>&2
+        exit 1
+        ;;
+    False)
+        case "$use_deb" in
+            force)
+                use_deb=True
+                ;;
+            True)
+                echo "$0: Internal error: use_deb should not be True yet" 1>&2
+                exit 1
+                ;;
+            False)
+                # Neither rpm nor deb forced - try to guess
+                if type -p rpm > /dev/null 2>&1
+                then
+                    use_rpm=True
+                fi
+
+                if type -p apt-get > /dev/null 2>&1
+                then
+                    use_deb=True
+                fi
+                ;;
+            *)
+                echo "$0: Internal error: use_deb not force or False" 1>&2
+                exit 1
+                ;;
+        esac
+        ;;
+    *)
+        echo "$0: Internal error: use_rpm not force or False" 1>&2
+        exit 1
+        ;;
+esac
+
+function rpm_all_found
+{
+    # shellcheck disable=SC2048
+    for package in $*
+    do
+        # FIXME: This might not be the correct way to test if an rpm is already installed
+        if rpm -q "$package" > /dev/null 2>&1
+        then
+            continue
+        else
+            # We didn't find one - return negative-logic false
+            return 1
+        fi
+    done
+    # We found them all - return negative-logic true
+    return 0
+}
+
+function deb_all_found
+{
+    # shellcheck disable=SC2048
+    for package in $*
+    do
+        # See https://stackoverflow.com/questions/1298066/check-if-a-package-is-installed-and-then-install-it-if-its-not
+
+        # These don't work
+        # if dpkg -p "$package" > /dev/null 2>&1
+        # if dpkg -s "$package" > /dev/null 2>&1
+        # if dpkg-query -l "$package" > /dev/null 2>&1
+        # if dpkg-query -p "$package" > /dev/null 2>&1
+        if dpkg-query -s "$package" 2> /dev/null | grep '^Status: ' | tr ' ' '\n' | grep -Fqx installed
+        then
+            continue
+        else
+            # We didn't find one - return negative-logic false
+            return 1
+        fi
+    done
+    # We found them all - return negative-logic true
+    return 0
+}
+
+function deb_install_packages
+{
+    # shellcheck disable=SC2048,SC2086
+    sudo apt-get install -y $*
+}
+
+function rpm_install_packages
+{
+    # shellcheck disable=SC2048,SC2086
+    sudo yum install -y $*
+}
+
+
+case "$use_rpm" in
+    True)
+        case "$use_deb" in
+            True)
+                # Both rpm and deb - give an error and exit
+                echo "$0: error: found both rpm and apt-get" 1>&2
+                exit 1
+                ;;
+            False)
+                if rpm_all_found "$rpm_packages"
+                then
+                    echo "$0: All rpm packages found, nothing to do" 1>&2
+                    exit 0
+                else
+                    rpm_install_packages "$rpm_packages"
+                fi
+                ;;
+            *)
+                echo "$0: Internal error: \$use_deb has a strange value: $use_deb" 1>&2
+                exit 1
+                ;;
+        esac
+        ;;
+    False)
+        case "$use_deb" in
+            True)
+                # shellcheck disable=SC2086
+                if deb_all_found $deb_packages
+                then
+                    echo "$0: All deb packages found, nothing to do" 1>&2
+                    exit 0
+                else
+                    # shellcheck disable=SC2086
+                    deb_install_packages $deb_packages
+                fi
+                ;;
+            False)
+                echo "$0: Error: No rpm or apt-get found" 1>&2
+                exit 1
+                ;;
+            *)
+                echo "$0: Internal error: \$use_deb has a strange value: $use_deb" 1>&2
+                exit 1
+                ;;
+        esac
+        ;;
+    *)
+        echo "$0: Internal error: \$use_rpm has a strange value: $use_rpm" 1>&2
+        exit 1
+        ;;
+esac
+

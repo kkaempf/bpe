@@ -5,7 +5,11 @@
 #include	<stdio.h>
 #include	<ctype.h>
 #include	<curses.h>
+#include	<string.h>
+#include	<unistd.h>
 #define		beep()		putchar(7)
+
+size_t rdsec(void);
 
 /*
 ** hex_2_byte returns the integer value of a byte
@@ -71,14 +75,14 @@ unsigned char *h;
 	return len;
 }
 
-find_hex()
+void find_hex()
 {
 	int 	stlen;
-	char 	string[60];
+	char 	string[1000];
 	char	*strstart;
-static	char	laststring[60];
+static	char	laststring[1000];
 static	int	re_search = 0, old_filpos;
-	unsigned char hexstr[30];
+	unsigned char hexstr[1000];
 	unsigned char *up;
 	int	found;
 	int 	searchpos;

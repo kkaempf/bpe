@@ -33,23 +33,30 @@ EXEC = bpe
 SHARLIST = $(SRCS) makefile readme bpe.1
 SHAR = shar
 
-$(EXEC): $(OBJS)
+go: install-deps $(EXEC)
+	
+install-deps:
+	./install-package --deb-packages libncurses5-dev
+
+$(EXEC): tags $(OBJS)
 	$(CC) -o $(EXEC) $(LOCAL) $(OBJS) $(LIBES)
 
 #$(OBJS): $(SRCS)
 #	$(CC) -c $(CFLAGS) $(LOCAL) $(SRCS)
 # special makerules here, portable
-.c.o:
+.c.o: tags
 	$(CC) -c $(CFLAGS) $(LOCAL) $?
-
-shar:		bpe.shar
-bpe.shar:	$(SHARLIST)
-	$(SHAR) $(SHARLIST) > bpe.shar
-
-arc:		bpe.arc
-bpe.arc:	bpe.exe bpe.doc
-	arc a bpe $?
-	rm bpe.doc
 
 bpe.doc:	bpe.1
 	nroff -man -Tlp bpe.1 | col > bpe.doc
+
+clean:
+	rm -f bpe *.o core tags
+
+install: bpe
+	./install-file --file bpe --directory /usr/local/bin/.
+	./install-file --file bpe.1 --directory /usr/local/man/man1/.
+
+tags:
+	ctags *.c
+
