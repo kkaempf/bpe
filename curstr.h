@@ -153,11 +153,12 @@ struct INPUTSTR {
 int     readstr(struct INPUTSTR * inp);
 void    errordsp(char *s);
 int     menu(char *mstr[]);
-
+int     getkey(void);
 #else
 int     readstr();
 void    errordsp();
 int     menu();
+int     getkey();
 
 #endif
 
