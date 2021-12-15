@@ -255,7 +255,7 @@ Disp2:
             unsigned char v;
 	    if ((i * view_cols + j) >= length) {
 		clrtobot();
-		goto Disp2;
+		goto Disp3;
 	    }
             v = secbuf[i * view_cols + j] & 0xFF;
             v = conv(v, 1);
